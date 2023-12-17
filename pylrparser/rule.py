@@ -1,6 +1,17 @@
 import pyltr
 
+def strip_comment(s):
+	result = []
+	for line in s.split("\n"):
+		if not line:
+			continue
+		if line[0] == "#":
+			continue
+		result.append(s)
+	return "\n".join(result)
+
 def load_rules(s):
+	s = strip_comment(s)
 	toksym = set("$")
 	rulesym = set()
 	def imap(s):

@@ -1,46 +1,34 @@
 # example, simple calculator
 
-from . import align_output
 from .parser import Parser
-from .rule import load_rules
-from .build import Lr1Builder
 
-def get_parser():
-	rules = '''[
-	[S [next expr4]]
-	[expr4
-		[next expr3]
-		[bin.add expr4 "+" expr3]
-		[bin.sub expr4 "-" expr3]
-	]
-	[expr3
-		[next expr2]
-		[bin.mul expr3 "*" expr2]
-		[bin.div expr3 "/" expr2]
-		[bin.mod expr3 "%" expr2]
-	]
-	[expr2
-		[next pexp]
-		[sign.pos "+" pexp]
-		[sign.neg "-" pexp]
-	]
-	[pexp
-		[next "n"]
-		[paren "(" expr4 ")"]
-	]
-	]'''
-	toksym, rulesym, rules, names = load_rules(rules)
-	builder = Lr1Builder(rules, toksym, rulesym)
-	action, goto = builder.build()
-	print("state len:", len(action))
-	parser = Parser(action, goto, toksym, rules, rulesym)
-	return parser, names
+rules = '''[
+[S [next expr4]]
+[expr4
+	[. expr3]
+	[bin.add expr4 "+" expr3]
+	[bin.sub expr4 "-" expr3]
+]
+[expr3
+	[, expr2]
+	[bin.mul expr3 "*" expr2]
+	[bin.div expr3 "/" expr2]
+	[bin.mod expr3 "%" expr2]
+]
+[expr2
+	[, pexp]
+	[sign.pos "+" pexp]
+	[sign.neg "-" pexp]
+]
+[pexp
+	[, "n"]
+	[paren "(" expr4 ")"]
+]
+]'''
 
 class Calc:
 	def __init__(self):
-		parser, names = get_parser()
-		self.parser = parser
-		self.names = names
+		self.parser = Parser(rules)
 	def tokenize(self, s):
 		idx = 0
 		s = list(s)
@@ -70,7 +58,7 @@ class Calc:
 			else:
 				return expr
 		print(expr)
-		match self.names[expr[0]]:
+		match expr[0]:
 			case "bin.add":
 				return int(self.eval(expr[1])) +\
 					int(self.eval(expr[3]))
@@ -96,8 +84,5 @@ class Calc:
 				return self.eval(expr[1])
 	def calc(self, s):
 		s, sty = self.tokenize(s)
-		self.parser.reset()
-		self.parser.parse(sty + ["$"])
-		output = self.parser.output
-		output = align_output(output, s)
+		output = self.parser.parse(sty, s)
 		return self.eval(output)

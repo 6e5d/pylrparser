@@ -163,7 +163,7 @@ class Lr1Builder:
 			v = G(s[4])
 		# print(r, c, "reduce", v)
 		if action[r][c] != -1 and action[r][c] != v:
-			raise Exception("amb reduce", r, c, v)
+			raise Exception("amb reduce", r, c, s)
 		action[r][c] = v
 	def build_goto(self, s, f, t, goto):
 		nxt = s[1][s[2]]
@@ -183,7 +183,7 @@ class Lr1Builder:
 		c = self.toksym.index(nxt)
 		# print(r, c, "shift", t)
 		if action[r][c] != -1 and action[r][c] != t:
-			raise Exception("amb shift", r, c,
+			raise Exception("amb shift", r, c, s,
 				t, action[r][c])
 		action[r][c] = t
 		return False

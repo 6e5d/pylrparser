@@ -1,4 +1,8 @@
-class Parser:
+from .rule import load_rules
+from .build import Lr1Builder
+from . import align_output
+
+class LrParser:
 	def __init__(self, action, goto, toksym, rules, rulesym):
 		# provided
 		self.action = action
@@ -71,5 +75,21 @@ class Parser:
 				case "reduce":
 					continue
 				case e:
+					print(toks[:idx])
 					raise Exception(e)
 		pass
+
+class Parser:
+	def __init__(self, rule_string):
+		term, nonterm, rules, names = load_rules(rule_string)
+		builder = Lr1Builder(rules, term, nonterm)
+		action, goto = builder.build()
+		parser = LrParser(action, goto, term, rules, nonterm)
+		self.names = names
+		self.parser = parser
+	def parse(self, toks, orig):
+		self.parser.reset()
+		self.parser.parse(toks + ["$"])
+		output = self.parser.output
+		output = align_output(output, orig, self.names)
+		return output
