@@ -47,10 +47,22 @@ class Lr1Builder:
 	def build_first_round2(self, sym, rule):
 		if rule[0] != sym:
 			return
+		if len(rule[1]) == 0:
+			self.first[sym].add("%")
+			return
 		if rule[1][0] in self.toksym:
 			self.first[sym].add(rule[1][0])
+			return
+		for y in rule[1]:
+			if "%" not in self.first[y]:
+				self.first[sym] |= self.first[y]
+				break
+			else:
+				s = set(self.first[y])
+				s.discard("$")
+				self.first[sym] |= s
 		else:
-			self.first[sym] |= self.first[rule[1][0]]
+			self.first[sym] != "%"
 	def build_first_round(self):
 		for sym in self.rulesym:
 			for rule in self.rules:
@@ -78,6 +90,7 @@ class Lr1Builder:
 				nxt = item.body[idx + 1]
 				if nxt in self.rulesym:
 					s = self.first[nxt]
+					s.discard("%")
 				else:
 					s = set([nxt])
 				follows[sym] |= s
