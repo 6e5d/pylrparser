@@ -1,5 +1,4 @@
 from itertools import groupby
-from . import G
 # item = [name [generation] dot_idx ahead]
 
 def tuple2item(t):
@@ -54,13 +53,15 @@ class Lr1Builder:
 			self.first[sym].add(rule[1][0])
 			return
 		for y in rule[1]:
+			if y in self.toksym:
+				self.first[sym].add(y)
+				break
 			if "%" not in self.first[y]:
 				self.first[sym] |= self.first[y]
 				break
-			else:
-				s = set(self.first[y])
-				s.discard("$")
-				self.first[sym] |= s
+			s = set(self.first[y])
+			s.discard("$")
+			self.first[sym] |= s
 		else:
 			self.first[sym] != "%"
 	def build_first_round(self):
@@ -78,22 +79,20 @@ class Lr1Builder:
 		for idx, sym in enumerate(item.body):
 			if sym not in self.rulesym:
 				continue
-			# A = aBb
-			if idx == len(item.body) - 1:
-				# last, b = eps, follow(B)|=follow(A)
-				if sym in self.rulesym:
-					follows[sym] |= follows[item.head]
-					if item.nxt in self.toksym:
-						follows[sym].add(item.nxt)
-			else:
-				# non last, follow(B)|=first(b)/{eps}
-				nxt = item.body[idx + 1]
-				if nxt in self.rulesym:
-					s = self.first[nxt]
-					s.discard("%")
-				else:
-					s = set([nxt])
+			for nxt in item.body[idx + 1:]:
+				if nxt not in self.rulesym:
+					follows[sym] |= set([nxt])
+					break
+				s = set(self.first[nxt])
+				if "%" not in s:
+					follows[sym] |= s
+					break
+				s.discard("%")
 				follows[sym] |= s
+			else:
+				follows[sym] |= follows[item.head]
+				if item.nxt in self.toksym:
+					follows[sym].add(item.nxt)
 	def build_follow_round(self, items, follows):
 		for item in items:
 			self.build_follow_round2(item, follows)
@@ -171,11 +170,10 @@ class Lr1Builder:
 		r = f
 		c = self.toksym.index(s[3])
 		if s[3] == "$" and s[0] == "S":
-			v = 0
+			v = True
 		else:
-			v = G(s[4])
-		# print(r, c, "reduce", v)
-		if action[r][c] != -1 and action[r][c] != v:
+			v = ("r", s[4])
+		if action[r][c] != None and action[r][c] != v:
 			raise Exception("amb reduce", r, c, s)
 		action[r][c] = v
 	def build_goto(self, s, f, t, goto):
@@ -183,7 +181,7 @@ class Lr1Builder:
 		r = f
 		c = self.rulesym.index(nxt)
 		# print(r, c, "shift", t)
-		if goto[r][c] != -1 and goto[r][c] != t:
+		if goto[r][c] != None and goto[r][c] != t:
 			raise Exception("amb goto", r, c, t, goto[r][c])
 		goto[r][c] = t
 		return False
@@ -195,25 +193,24 @@ class Lr1Builder:
 		r = f
 		c = self.toksym.index(nxt)
 		# print(r, c, "shift", t)
-		if action[r][c] != -1 and action[r][c] != t:
+		if action[r][c] != None and action[r][c] != ("s", t):
 			raise Exception("amb shift", r, c, s,
 				t, action[r][c])
-		action[r][c] = t
+		action[r][c] = ("s", t)
 		return False
 	def build2(self):
 		# build action and goto
 		slen = len(self.igroups)
-		action = [[-1 for _ in range(len(self.toksym) ** 2)]
+		action = [[None for _ in range(len(self.toksym))]
 			for _ in range(slen)
 		]
-		goto = [[-1 for _ in range(len(self.rulesym))]
+		goto = [[None for _ in range(len(self.rulesym))]
 			for _ in range(slen)
 		]
 		for f, (group, iglink) in enumerate(
 			zip(self.igroups, self.iglinks)
 		):
 			for (s, t) in zip(group, iglink):
-				# print(f, t, s)
 				if s[2] == len(s[1]):
 					self.build_reduce(s, f, t, action)
 				elif self.build_shift(s, f, t, action):
@@ -237,13 +234,14 @@ class Lr1Builder:
 			items = [tuple2item(ig) for ig in self.igroups[idx]]
 			items = self.propagate(items)
 			follows = self.build_follow(items)
+			# print(follows)
 			self.igroups[idx] += self.combine_ahead(
 				items, follows)
 			self.igroups[idx] = sorted(list(set(self.igroups[idx])))
 			if self.find_collision(idx):
 				continue
-			#for ig in self.igroups[idx]:
-			#	print(idx, tuple2item(ig))
+			# for ig in self.igroups[idx]:
+			# 	print(idx, tuple2item(ig))
 			self.forward(self.igroups[idx])
 			glen = len(self.igroups[idx])
 			idx += 1

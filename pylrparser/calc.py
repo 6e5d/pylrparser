@@ -1,34 +1,14 @@
 # example, simple calculator
 
-from .parser import Parser
-
-rules = '''[
-[S [next expr4]]
-[expr4
-	[. expr3]
-	[bin.add expr4 "+" expr3]
-	[bin.sub expr4 "-" expr3]
-]
-[expr3
-	[, expr2]
-	[bin.mul expr3 "*" expr2]
-	[bin.div expr3 "/" expr2]
-	[bin.mod expr3 "%" expr2]
-]
-[expr2
-	[, pexp]
-	[sign.pos "+" pexp]
-	[sign.neg "-" pexp]
-]
-[pexp
-	[, "n"]
-	[paren "(" expr4 ")"]
-]
-]'''
+from pathlib import Path
+from .parser import cached_parser
 
 class Calc:
 	def __init__(self):
-		self.parser = Parser(rules)
+		self.parser = cached_parser(
+			Path(__file__).parent / "calc.txt",
+			Path(__file__).parent / "calc.json",
+		)
 	def tokenize(self, s):
 		idx = 0
 		s = list(s)

@@ -1,95 +1,75 @@
+import json
+
+from . import align_output
+from .lrparser import LrParser
 from .rule import load_rules
 from .build import Lr1Builder
-from . import align_output
 
-class LrParser:
-	def __init__(self, action, goto, toksym, rules, rulesym):
-		# provided
-		self.action = action
-		self.toksym = toksym
-		self.goto = goto
-		self.rulesym = rulesym
-		self.rules = rules
-		self.reset()
-	def reset(self):
-		self.stst = [0]
-		self.stack = []
-		self.output = []
-	def pop(self, l):
-		assert len(self.stst) >= l + 1
-		assert len(self.stack) >= l
-		stack = self.stack[-l:]
-		self.stst = self.stst[:-l]
-		self.stack = self.stack[:-l]
-		return stack
-	def update_output(self, s, ruleid):
-		s = list(s)
-		output2 = []
-		for idx, ss in reversed(list(enumerate(s))):
-			if ss in self.rulesym:
-				p = self.output.pop()
-				s[idx] = p
-		self.output.append([ruleid] + s)
-	def go(self, s):
-		# print("go", s, self.stst, self.stack)
-		col = self.toksym.index(s)
-		row = self.stst[-1]
-		if row < 0:
-			return "minusrow"
-		op = self.action[row][col]
-		if isinstance(op, int):
-			if op == 0:
-				return "finish"
-			if op == -1:
-				print(row, self.toksym[col])
-				return "errorstate"
-			if op > 0:
-				self.stack.append(s)
-				self.stst.append(op)
-				return "shift"
-		# reduce
-		op = op.v
-		name, generation = self.rules[op]
-		col = self.rulesym.index(name)
-		stack = self.pop(len(generation))
-		self.update_output(stack, op)
-		if stack != generation:
-			raise Exception(stack, generation)
-		state = self.goto[self.stst[-1]][col]
-		if state < 0:
-			print(self.goto, self.stst[-1], col, self.rulesym[col])
-			return "errorgoto"
-		self.stack.append(name)
-		self.stst.append(state)
-		return "reduce"
-	def parse(self, toks):
-		idx = 0
-		while True:
-			view = toks[idx]
-			match self.go(view):
-				case "finish":
-					self.output = [0] + self.output
-					break
-				case "shift":
-					idx += 1
-				case "reduce":
-					continue
-				case e:
-					print(toks[:idx])
-					raise Exception(e)
-		pass
-
-class Parser:
-	def __init__(self, rule_string):
+class ParserConfig:
+	def __init__(self):
+		self.action = None
+		self.goto = None
+		self.rules = None
+		self.term = None
+		self.nonterm = None
+		self.names = None
+	def load_string(self, rule_string):
 		term, nonterm, rules, names = load_rules(rule_string)
 		builder = Lr1Builder(rules, term, nonterm)
-		action, goto = builder.build()
-		parser = LrParser(action, goto, term, rules, nonterm)
+		self.action, self.goto = builder.build()
+		self.rules = rules
+		self.term = term
+		self.nonterm = nonterm
 		self.names = names
-		self.parser = parser
+	def load_cache(self, path):
+		with open(path) as f:
+			[
+				self.action,
+				self.goto,
+				self.rules,
+				self.term,
+				self.nonterm,
+				self.names,
+			] = json.loads(f.read())
+	def save(self, path):
+		s = json.dumps([
+			self.action,
+			self.goto,
+			self.rules,
+			self.term,
+			self.nonterm,
+			self.names,
+		])
+		with open(path, "w") as f:
+			print(s, file = f)
+
+class Parser:
+	def __init__(self, pc):
+		self.parser = LrParser(
+			pc.action,
+			pc.goto,
+			pc.term,
+			pc.rules,
+			pc.nonterm,
+		)
+		self.names = pc.names
 	def parse(self, toks, orig):
 		self.parser.reset()
-		self.parser.parse(toks + ["$"])
+		(ret, idx) = self.parser.parse(toks + ["$"])
+		if ret != "ok":
+			print(" ".join(orig[:idx]))
+			raise Exception(ret)
 		output = self.parser.output
 		output = align_output(output, orig, self.names)
 		return output
+
+def cached_parser(rule_file, cache_file):
+	pc = ParserConfig()
+	if not cache_file.exists() or\
+		cache_file.stat().st_mtime < rule_file.stat().st_mtime:
+		s = open(rule_file, "r").read()
+		pc.load_string(s)
+		pc.save(cache_file)
+	else:
+		pc.load_cache(cache_file)
+	return Parser(pc)

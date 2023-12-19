@@ -1,0 +1,23 @@
+[
+[S [next Expr4]]
+[Expr4
+	[. Expr3]
+	[bin.add Expr4 "+" Expr3]
+	[bin.sub Expr4 "-" Expr3]
+]
+[Expr3
+	[, Expr2]
+	[bin.mul Expr3 "*" Expr2]
+	[bin.div Expr3 "/" Expr2]
+	[bin.mod Expr3 "%" Expr2]
+]
+[Expr2
+	[, Pexp]
+	[sign.pos "+" Pexp]
+	[sign.neg "-" Pexp]
+]
+[Pexp
+	[, "n"]
+	[paren "(" Expr4 ")"]
+]
+]
