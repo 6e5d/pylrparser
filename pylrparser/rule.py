@@ -1,17 +1,10 @@
 import pyltr
 
-def strip_comment(s):
-	result = []
-	for line in s.split("\n"):
-		if not line:
-			continue
-		if line[0] == "#":
-			continue
-		result.append(s)
-	return "\n".join(result)
-
 def load_rules(s):
-	s = strip_comment(s)
+	s = pyltr.striphash(s)
+	rules = pyltr.parse_slit(s)
+	assert(rules[0][0] == "S")
+
 	toksym = set("$")
 	rulesym = set()
 	def imap(s):
@@ -21,8 +14,6 @@ def load_rules(s):
 		s = s.s
 		toksym.add(s)
 		return s
-	rules = pyltr.parse(s)
-	assert(rules[0][0] == "S")
 	rulesym.add("S")
 	names = []
 	rules2 = []
